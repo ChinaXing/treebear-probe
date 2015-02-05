@@ -1,0 +1,13 @@
+{application, treebear_probe,
+ [
+  {description, "treebear probe client mocker"},
+  {vsn, "1"},
+  {registered, []},
+  {modules, [udp_broker]},
+  {applications, [
+                  kernel,
+                  stdlib
+                 ]},
+  {mod, { treebear_probe_app, []}},
+  {env, []}
+ ]}.
