@@ -41,13 +41,13 @@ buildSubPacket(0,Binary) -> Binary;
 buildSubPacket(PackCount, Binary) ->
     Flag = random:uniform(3),
     DevMac = randomMac(),
-    Timestamp = timestampAsLong(),
+    {TimestampSec,TimestampMicroSec} = timestamp_pair(),
     Rssi = 16#e1,
     Channel = 16#02,
     IsAssociated = 16#01,
     FrameControl = random:uniform(1000),
     ProbeTimes = random:uniform(255),
-    SubPacket = list_to_binary([DevMac,<<Flag:16>>,<<Timestamp:64,Rssi,Channel,IsAssociated,0,FrameControl:16,ProbeTimes:16>>]),
+    SubPacket = list_to_binary([DevMac,<<Flag:16>>,<<TimestampSec:32,TimestampMicroSec:32,Rssi,Channel,IsAssociated,0,FrameControl:16,ProbeTimes:16>>]),
     buildSubPacket(PackCount - 1, [SubPacket|Binary]).
 
 randomMac() ->
@@ -64,7 +64,7 @@ randomByteList(Size, Cps) ->
     randomByteList(Size - 1, [R|Cps]).
     
     
-timestampAsLong() ->
+timestamp_pair() ->
     {A,B,C} = os:timestamp(),
-    round(A * math:pow(10,12) + B * math:pow(10,6) + C).
+    {(A * 1000000 + B), C}.
     
