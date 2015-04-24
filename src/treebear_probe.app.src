@@ -1,13 +1,21 @@
 {application, treebear_probe,
- [
-  {description, "treebear probe client mocker"},
-  {vsn, "1"},
-  {registered, []},
-  {modules, [udp_broker]},
-  {applications, [
-                  kernel,
-                  stdlib
-                 ]},
-  {mod, { treebear_probe_app, []}},
-  {env, []}
- ]}.
+  [
+    {description, "treebear probe client mocker"},
+    {vsn, "1"},
+    {registered, []},
+    {modules, [udp_broker]},
+    {applications, [
+      kernel,
+      stdlib
+    ]},
+    {mod, {treebear_probe_app, []}},
+    {env, [
+      {host, "115.29.235.33"},
+      {port, 12092},
+      {pack_count, 10},
+      {parallelism, 10},
+      {count, 100},
+      {delay, 1000}
+    ]}
+  ]
+}.
