@@ -84,8 +84,10 @@ handle_info(Info, State) ->
 %% ------- biz ------------ %
 send_message(Host, Port, Parallel, Count, Delay, PackCount) ->
   io:format("This is for treebear probe message, I'm the client..~n", []),
-  Packet = buildPacket(PackCount),
-  udp_broker:start(Host, Port, Parallel, Count, Delay, Packet),
+  PacketFun = fun (_Index) ->
+		      buildPacket(PackCount)
+	      end,
+  udp_broker:start(Host, Port, Parallel, Count, Delay, PacketFun),
   io:format("work done, It's time to have a break ~n", []),
   {ok, self()}.
 
