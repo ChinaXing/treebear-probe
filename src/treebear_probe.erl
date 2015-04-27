@@ -117,7 +117,7 @@ buildPacketHeader(PackCount) ->
 %% build subPacket List , has count of PackCount subPacket.
 buildSubPacket(0, Binary) -> Binary;
 buildSubPacket(PackCount, Binary) ->
-  Flag = random:uniform(3),
+  Flag = random:uniform(2),
   DevMac = randomMac(),
   {TimestampSec, TimestampMicroSec} = timestamp_pair(),
   Rssi = 16#e1,
