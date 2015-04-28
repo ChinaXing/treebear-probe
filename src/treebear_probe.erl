@@ -1,5 +1,6 @@
 -module(treebear_probe).
 %-compile(debug_info).
+-compile(export_all).
 
 -behaviour(gen_server).
 -export([
@@ -35,17 +36,20 @@ set_option(Options) ->
   gen_server:call(?MODULE, {set_option, Options}).
 
 init([]) ->
-  random:seed(os:timestamp()),
   {ok, Host} = application:get_env(host),
   {ok, Port} = application:get_env(port),
   {ok, PackCount} = application:get_env(pack_count),
   {ok, Parallelism} = application:get_env(parallelism),
   {ok, Count} = application:get_env(count),
   {ok, Delay} = application:get_env(delay),
+  {ok, MacRandom} = application:get_env(mac_random),
+  {ok, FlagRandom} = application:get_env(flag_random),
+  {ok, SnRandom} = application:get_env(sn_random),
   {ok, #{host => Host,
     port => Port, pack_count => PackCount,
     parallelism => Parallelism, count => Count,
-    delay => Delay
+    delay => Delay, mac_random => MacRandom,
+    flag_random => FlagRandom, sn_random => SnRandom
   }}.
 
 handle_call(help, _From, State) ->
@@ -61,8 +65,8 @@ handle_call(get_option, _From, State) ->
   {reply, maps:to_list(State), State}.
 
 handle_cast(send_message, State) ->
-  #{host := Host, port := Port, pack_count := PackCount, parallelism := Parallelism, count := Count, delay := Delay} = State,
-  send_message(Host, Port, Parallelism, Count, Delay, PackCount),
+  #{host := Host, port := Port, pack_count := PackCount, parallelism := Parallelism, count := Count, delay := Delay, flag_random := FlagRandom, mac_random := MacRandom, sn_random := SnRandom } = State,
+  send_message(Host, Port, Parallelism, Count, Delay, PackCount, MacRandom, FlagRandom, SnRandom),
   {noreply, State};
 
 handle_cast({send_message, Options}, State) ->
@@ -83,27 +87,27 @@ handle_info(Info, State) ->
   {noreply, State}.
 
 %% ------- biz ------------ %
-send_message(Host, Port, Parallel, Count, Delay, PackCount) ->
+send_message(Host, Port, Parallel, Count, Delay, PackCount, MacRandom, FlagRandom, SnRandom) ->
   io:format("This is for treebear probe message, I'm the client..~n", []),
   PacketFun = fun (_Index) ->
-		      buildPacket(PackCount)
+		      buildPacket(PackCount, MacRandom, FlagRandom, SnRandom)
 	      end,
   udp_broker:start(Host, Port, Parallel, Count, Delay, PacketFun),
   io:format("work done, It's time to have a break ~n", []),
   {ok, self()}.
 
-buildPacket(PackCount) ->
-  random:seed(os:timestamp()),  
-  PacketHeader = buildPacketHeader(PackCount),
-  PacketBody = buildSubPacket(PackCount, []),
+buildPacket(PackCount, MacRandom, FlagRandom, SnRandom) ->
+  random:seed(random:seed()),
+  PacketHeader = buildPacketHeader(PackCount, SnRandom),
+  PacketBody = buildSubPacket(PackCount, FlagRandom, MacRandom, []),
   list_to_binary([PacketHeader, PacketBody]).
 
-buildPacketHeader(PackCount) ->
-  ProbeMac = randomMac(),
+buildPacketHeader(PackCount, SnRandom) ->
+  ProbeMac = randomMac(false),
   SubPacketLength = 16#0018,
   Len = SubPacketLength * PackCount + 40,
   Mode = 0, %%random:uniform(2) - 1,
-  Sn = randomSn(),
+  Sn = randomSn(SnRandom),
   list_to_binary(
     [<<16#efd1:16, %% magic
     16#fe, %% code
@@ -119,26 +123,54 @@ buildPacketHeader(PackCount) ->
     ]).
 
 %% build subPacket List , has count of PackCount subPacket.
-buildSubPacket(0, Binary) -> Binary;
-buildSubPacket(PackCount, Binary) ->
-  Flag = random:uniform(2),
-  DevMac = randomMac(),
+buildSubPacket(0, _FlagRandom, _MacRandom, Binary) -> Binary;
+buildSubPacket(PackCount, FlagRandom, MacRandom, Binary) ->
+  Flag = randomFlag(FlagRandom),
+  DevMac = randomMac(MacRandom),
   {TimestampSec, TimestampMicroSec} = timestamp_pair(),
-  Rssi = 16#e1,
+  Rssi = random:uniform(127),
   Channel = 16#02,
   IsAssociated = 16#01,
   FrameControl = random:uniform(1000),
   ProbeTimes = random:uniform(255),
   SubPacket = list_to_binary([DevMac, <<Flag:16>>, <<TimestampSec:32, TimestampMicroSec:32, Rssi, Channel, IsAssociated, 0, FrameControl:16, ProbeTimes:16>>]),
-  buildSubPacket(PackCount - 1, [SubPacket | Binary]).
+  buildSubPacket(PackCount - 1, FlagRandom, MacRandom, [SubPacket | Binary]).
 
-randomMac() ->
-  L = randomByteList(6, []),
-  list_to_binary(L).
+randomFlag(Random) ->
+    case Random of 
+	true ->
+	    OldState = random:seed(now()),
+	    Flag = random:uniform(2),
+	    random:seed(OldState);
+	_ ->
+	    Flag = random:uniform(2)
+    end,
+    io:format("Flag : ~p~n",[Flag]),
+    Flag.
+    
+	    
 
-randomSn() ->
-  I = random:uniform(10),
-  "P_00000000000000_" ++ integer_to_list(I - 1).
+randomMac(Random) ->
+    case Random of
+	true ->
+	    OldState = random:seed(now()),
+	    L = randomByteList(6, []),
+	    random:seed(OldState);
+	_ ->
+	    L = randomByteList(6, [])
+    end,
+    list_to_binary(L).
+
+randomSn(Random) ->
+    case Random of 
+	true ->
+	    OldState = random:seed(now()),
+	    I = random:uniform(10),
+	    random:seed(OldState);
+	_ ->
+	    I = random:uniform(10)
+    end,
+    "P_00000000000000_" ++ integer_to_list(I - 1).
 
 randomByteList(0, Cps) -> Cps;
 randomByteList(Size, Cps) ->
@@ -149,3 +181,12 @@ randomByteList(Size, Cps) ->
 timestamp_pair() ->
   {A, B, C} = os:timestamp(),
   {(A * 1000000 + B), C}.
+
+%% just test
+randomList() ->
+    random:seed({1,2,3}),
+    OldState = random:seed(now()),
+    io:format("~p~n", [random:uniform(5)]),
+    random:seed(OldState),
+    io:format("~p~n", [random:uniform(5)]).
+    

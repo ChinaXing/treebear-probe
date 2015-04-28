@@ -13,9 +13,12 @@
       {host, "115.29.235.33"},
       {port, 12092},
       {pack_count, 10},
-      {parallelism, 10},
-      {count, 100},
-      {delay, 1000}
+      {parallelism, 1},
+      {count, 1},
+      {delay, 1000},
+      {mac_random, false},
+      {flag_random, true},
+      {sn_random, false}
     ]}
   ]
 }.
