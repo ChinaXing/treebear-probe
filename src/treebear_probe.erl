@@ -90,6 +90,7 @@ handle_info(Info, State) ->
 send_message(Host, Port, Parallel, Count, Delay, PackCount, MacRandom, FlagRandom, SnRandom) ->
   io:format("This is for treebear probe message, I'm the client..~n", []),
   PacketFun = fun (_Index) ->
+		      put(mac_list_size, Count + round(Count / 2) ), 
 		      buildPacket(PackCount, MacRandom, FlagRandom, SnRandom)
 	      end,
   udp_broker:start(Host, Port, Parallel, Count, Delay, PacketFun),
@@ -126,7 +127,7 @@ buildPacketHeader(PackCount, SnRandom) ->
 buildSubPacket(0, _FlagRandom, _MacRandom, Binary) -> Binary;
 buildSubPacket(PackCount, FlagRandom, MacRandom, Binary) ->
   Flag = randomFlag(FlagRandom),
-  DevMac = randomMac(MacRandom),
+  DevMac = selectMacFromSet(),
   {TimestampSec, TimestampMicroSec} = timestamp_pair(),
   Rssi = random:uniform(127),
   Channel = 16#02,
@@ -147,7 +148,6 @@ randomFlag(Random) ->
     end,
     io:format("Flag : ~p~n",[Flag]),
     Flag.
-    
 	    
 
 randomMac(Random) ->
@@ -160,6 +160,23 @@ randomMac(Random) ->
 	    L = randomByteList(6, [])
     end,
     list_to_binary(L).
+
+selectMacFromSet() ->
+    N = get(mac_list_size),
+    MacList = case get(mac_list) of
+		  undefined ->
+		      MacList0 = buildMacList(N,[]),
+		      put(mac_list, MacList0),
+		      MacList0;
+		  M ->
+		      M
+	      end,
+    lists:nth(random:uniform(N),MacList).
+
+buildMacList(0,L) -> L;
+buildMacList(N,L) -> 
+    Mac = randomMac(false),
+    buildMacList(N - 1, [Mac|L]).
 
 randomSn(Random) ->
     case Random of 
