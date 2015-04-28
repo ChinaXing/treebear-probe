@@ -35,6 +35,7 @@ set_option(Options) ->
   gen_server:call(?MODULE, {set_option, Options}).
 
 init([]) ->
+  random:seed(os:timestamp()),
   {ok, Host} = application:get_env(host),
   {ok, Port} = application:get_env(port),
   {ok, PackCount} = application:get_env(pack_count),
