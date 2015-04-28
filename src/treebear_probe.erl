@@ -93,6 +93,7 @@ send_message(Host, Port, Parallel, Count, Delay, PackCount) ->
   {ok, self()}.
 
 buildPacket(PackCount) ->
+  random:seed(os:timestamp()),  
   PacketHeader = buildPacketHeader(PackCount),
   PacketBody = buildSubPacket(PackCount, []),
   list_to_binary([PacketHeader, PacketBody]).
